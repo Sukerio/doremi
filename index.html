@@ -206,7 +206,7 @@ function _coll(path){const c=path.split('/')[0];return Object.assign(_q(c),{path
   doc:id=>_doc(c+'/'+(id||Math.random().toString(36).slice(2,14))),
   add:async d=>{const r=await gs('call',S.token,'add',c,null,_clone(d));_map(c).set(r.id,r.data||_clone(d));_emit(c);return{id:r.id}}})}
 const _DB={doc:_doc,collection:_coll};
-const _USER={canEdit:async()=>S.user.role==='admin',isOwner:async()=>S.user.role==='admin',can:async()=>true,id:async()=>S.user.id,
+const _USER={canEdit:async()=>S.user.role==='admin'||S.user.role==='manager',isOwner:async()=>S.user.role==='admin',can:async()=>true,id:async()=>S.user.id,
   me:async()=>({id:S.user.id,name:S.user.name}),profiles:async ids=>{const o={};(ids||[]).forEach(i=>o[i]={name:S.names[i]||''});return o}};
 const _toB64=blob=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob)});
 const _ASSETS={upload:async blob=>{const b64=await _toB64(blob);return gs('upload',S.token,b64,blob.type&&blob.type.startsWith('image/')?blob.type:'image/jpeg')}};
@@ -249,6 +249,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 <script>
 const $=s=>document.querySelector(s);
+const isOwner=()=>!!(S.user&&S.user.role==='admin');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const z=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
@@ -293,6 +294,7 @@ function render(){
   const bd=document.getElementById('bdgResit');if(bd){const n=isAdmin?resits.filter(r=>!r.checked).length:0;bd.hidden=!n;bd.textContent=n}
   {const bf=document.getElementById('bdgFx');if(bf){const n=isAdmin?fxOverdue():0;bf.hidden=!n;bf.textContent=n}}
   {const bs=document.getElementById('bdgSup');if(bs){const n=isAdmin?pos.filter(p=>!paidOf(p._id)).length+supOwed().length:0;bs.hidden=!n;bs.textContent=n}}
+  if(isAdmin&&!isOwner()&&['senarai','pengguna'].includes(view)){$('#main').innerHTML=`<h2>Untuk pemilik sahaja</h2><div class="panel empty">Tetapan sistem (pengguna dan senarai item) hanya boleh diubah oleh pemilik. <a href="#po">Kembali ke PO</a></div>`;bar('');return}
   if(!isAdmin&&['ringkasan','senarai','gaji','jualan','log','supplier','pengguna'].includes(view)){$('#main').innerHTML=`<h2>Untuk admin sahaja</h2><div class="panel empty">Halaman ini hanya untuk pemilik dan Editor. <a href="#po">Kembali ke PO</a></div>`;bar('');return}
   ({pengguna:vUsers,supplier:vSup,tutup:vTutup,log:vLog,jualan:vJual,po:vPO,resit:vResit,ringkasan:vSum,senarai:vList,gaji:vGaji}[view]||vPO)();
 }
@@ -304,7 +306,7 @@ function vPO(){
   h+=`<div class="grid" style="margin-bottom:12px"><label class="f">Untuk tarikh<input type="date" id="poFor" value="${poFor}"></label><label class="f" style="grid-column:span 2">Nota (pilihan)<input id="poNote" value="${esc(poNote)}" placeholder="cth: hantar sebelum 6 pagi"></label></div>`;
   if(!catalog.length){h+=`<div class="panel empty">Belum ada item. Tambah di tab <a href="#senarai">Senarai Item</a>.</div>`}
   CATS.forEach((c,ci)=>{const its=ck.filter(i=>(i.cat||'Lain-lain')===c);if(!its.length&&!isAdmin)return;
-    h+=`<h3>${c}</h3><div class="panel">`+its.map(i=>{const q=qty[i.id]||'';const bk=bakiOf(i.id);return `<div class="row${q>0?' on':''}"><div class="name">${esc(i.name)}${bk!==null?`<br><span style="font-size:12px;color:var(--muted)">baki semalam: <span class="num">${bk}</span></span>`:''}</div><div class="step"><button data-a="dec" data-id="${i.id}" aria-label="Kurang">−</button><input inputmode="decimal" id="q-${i.id}" data-q="${i.id}" value="${q}" placeholder="0"><button data-a="inc" data-id="${i.id}" aria-label="Tambah">+</button></div><div class="unit">${esc(i.unit)}</div></div>`}).join('')+(isAdmin?`<div class="row" style="background:var(--bg)"><input class="name" id="nn-${ci}" placeholder="+ Tambah ${c.toLowerCase()} baru" data-enter="${ci}"><select id="nu-${ci}" aria-label="Unit">${UNITS.map(u=>`<option${u===(c==='Lauk'?'ketul':c==='Kuah & mee'?'bekas':c==='Sambal'?'bekas':'kg')?' selected':''}>${u}</option>`).join('')}</select><button class="btn sm pri" data-a="quickAdd" data-ci="${ci}" ${db?'':'disabled'}>Tambah</button></div>`:'')+`</div>`});
+    h+=`<h3>${c}</h3><div class="panel">`+its.map(i=>{const q=qty[i.id]||'';const bk=bakiOf(i.id);return `<div class="row${q>0?' on':''}"><div class="name">${esc(i.name)}${bk!==null?`<br><span style="font-size:12px;color:var(--muted)">baki semalam: <span class="num">${bk}</span></span>`:''}</div><div class="step"><button data-a="dec" data-id="${i.id}" aria-label="Kurang">−</button><input inputmode="decimal" id="q-${i.id}" data-q="${i.id}" value="${q}" placeholder="0"><button data-a="inc" data-id="${i.id}" aria-label="Tambah">+</button></div><div class="unit">${esc(i.unit)}</div></div>`}).join('')+(isOwner()?`<div class="row" style="background:var(--bg)"><input class="name" id="nn-${ci}" placeholder="+ Tambah ${c.toLowerCase()} baru" data-enter="${ci}"><select id="nu-${ci}" aria-label="Unit">${UNITS.map(u=>`<option${u===(c==='Lauk'?'ketul':c==='Kuah & mee'?'bekas':c==='Sambal'?'bekas':'kg')?' selected':''}>${u}</option>`).join('')}</select><button class="btn sm pri" data-a="quickAdd" data-ci="${ci}" ${db?'':'disabled'}>Tambah</button></div>`:'')+`</div>`});
   h+=`<h2>Sejarah PO</h2><p class="sub">Tekan PO untuk lihat, salin semula, atau ulang.</p><div class="panel">`;
   h+=pos.length?pos.slice(0,40).map(cardPO).join(''):`<div class="empty">PO yang dijana akan muncul di sini.</div>`;
   h+=`</div>`;
@@ -478,9 +480,9 @@ let usersAll=null;
 function vUsers(){
   bar('');
   if(usersAll===null){$('#main').innerHTML='<h2>Pengguna</h2><div class="panel empty">Memuatkan…</div>';gs('listUsers',S.token).then(l=>{usersAll=l;if(view==='pengguna')render()}).catch(e=>toast(e.message));return}
-  let h=`<h2>Pengguna <span class="lock">Admin sahaja</span></h2><p class="sub">Setiap orang log masuk dengan nama + PIN sendiri. <b>Staff</b>: PO, Resit, Tutup Kedai. <b>Admin</b>: semua, termasuk jualan, gaji dan untung rugi.</p><div class="panel">`;
-  h+=usersAll.map(u=>`<div class="row" style="flex-wrap:wrap"><input style="flex:1 1 140px" id="un-${u.id}" value="${esc(u.name)}" aria-label="Nama"><select id="ur-${u.id}" aria-label="Peranan"><option value="staff"${u.role==='staff'?' selected':''}>Staff</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select><input style="width:110px" id="up-${u.id}" inputmode="numeric" maxlength="6" placeholder="PIN baru" autocomplete="off" aria-label="PIN baru"><label class="f" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="ua-${u.id}" ${u.active!==false?'checked':''}> Aktif</label><button class="btn sm pri" data-a="saveU" data-id="${u.id}">Simpan</button></div>`).join('');
-  h+=`</div><h3>Tambah pengguna</h3><div class="panel" style="padding:12px"><div class="grid"><label class="f">Nama<input id="nuN" placeholder="cth: Aina"></label><label class="f">PIN (4–6 digit)<input id="nuP" inputmode="numeric" maxlength="6" autocomplete="off"></label><label class="f">Peranan<select id="nuR"><option value="staff">Staff</option><option value="admin">Admin</option></select></label></div><div class="actions"><button class="btn pri" data-a="addU">Tambah pengguna</button></div></div>
+  let h=`<h2>Pengguna <span class="lock">Admin sahaja</span></h2><p class="sub">Setiap orang log masuk dengan nama + PIN sendiri. <b>Staff</b>: PO, Resit, Tutup Kedai. <b>Manager</b>: semua operasi termasuk jualan, gaji, supplier dan untung rugi, tapi tak boleh ubah pengguna atau senarai item. <b>Admin</b>: pemilik, semua.</p><div class="panel">`;
+  h+=usersAll.map(u=>`<div class="row" style="flex-wrap:wrap"><input style="flex:1 1 140px" id="un-${u.id}" value="${esc(u.name)}" aria-label="Nama"><select id="ur-${u.id}" aria-label="Peranan"><option value="staff"${u.role==='staff'?' selected':''}>Staff</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option><option value="admin"${u.role==='admin'?' selected':''}>Admin (pemilik)</option></select><input style="width:110px" id="up-${u.id}" inputmode="numeric" maxlength="6" placeholder="PIN baru" autocomplete="off" aria-label="PIN baru"><label class="f" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="ua-${u.id}" ${u.active!==false?'checked':''}> Aktif</label><button class="btn sm pri" data-a="saveU" data-id="${u.id}">Simpan</button></div>`).join('');
+  h+=`</div><h3>Tambah pengguna</h3><div class="panel" style="padding:12px"><div class="grid"><label class="f">Nama<input id="nuN" placeholder="cth: Aina"></label><label class="f">PIN (4–6 digit)<input id="nuP" inputmode="numeric" maxlength="6" autocomplete="off"></label><label class="f">Peranan<select id="nuR"><option value="staff">Staff</option><option value="manager">Manager</option><option value="admin">Admin (pemilik)</option></select></label></div><div class="actions"><button class="btn pri" data-a="addU">Tambah pengguna</button></div></div>
   <p class="sub" style="margin-top:10px">Staff lupa PIN? Isi PIN baru pada barisnya dan tekan Simpan. 5 kali PIN salah, akaun dikunci 10 minit. Staff yang berhenti: buang tanda <b>Aktif</b>, rekod lama kekal.</p>`;
   $('#main').innerHTML=h;
 }
@@ -774,7 +776,7 @@ render();
   me=user?await user.id():null;
   window.__user=user;resolveNames();
   assets=await window.claude.use('assets');
-  $('#grpAdmin').hidden=!isAdmin;render();
+  $('#grpAdmin').hidden=!isAdmin;document.querySelectorAll('a[data-v="pengguna"],a[data-v="senarai"]').forEach(a=>a.hidden=!isOwner());render();
   if(isAdmin){db.collection('jualan').onSnapshot(s=>{jual={};s.docs.forEach(d=>jual[d.id]=d.data());if((view==='ringkasan'||view==='jualan')&&fxPay===null&&!document.activeElement?.closest?.('#main input'))render()},fail)}
   if(isAdmin){db.collection('gaji').onSnapshot(s=>{s.docs.forEach(d=>{if(d.id==='pekerja')workers=d.data().list||[];else if(d.id!==dirtyWeek)weeks[d.id]=JSON.parse(JSON.stringify(d.data()))});if((view==='gaji'&&!document.activeElement?.dataset?.g&&!editWDirty())||view==='ringkasan'&&!document.activeElement?.closest?.('#main input'))render()},fail)}
   if(isAdmin){db.collection('bayarsup').onSnapshot(s=>{bayarsup=s.docs.map(d=>({...d.data(),_id:d.id}));if(['supplier','resit','jualan','ringkasan'].includes(view)&&!document.activeElement?.closest?.('#main input'))render()},fail)}
